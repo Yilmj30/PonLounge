@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b0d10;
+  --foreground: #f2ece0;
+
+  /* PON Lounge — "La Sala del Tiempo" palette: obsidian + brass, an ode to
+     time and VIP/luxury nightlife. */
+  --color-obsidian: #0b0d10;
+  --color-obsidian-soft: #14181d;
+  --color-navy: #101820;
+  --color-brass: #b98d4b;
+  --color-brass-light: #e0be82;
+  --color-brass-deep: #8a6a35;
+  --color-cream: #f2ece0;
+  --color-cream-muted: #c9c0ae;
+  --color-emerald: #16342b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+
+  --color-obsidian: var(--color-obsidian);
+  --color-obsidian-soft: var(--color-obsidian-soft);
+  --color-navy: var(--color-navy);
+  --color-brass: var(--color-brass);
+  --color-brass-light: var(--color-brass-light);
+  --color-brass-deep: var(--color-brass-deep);
+  --color-cream: var(--color-cream);
+  --color-cream-muted: var(--color-cream-muted);
+  --color-emerald: var(--color-emerald);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+}
+
+/* Anchor-linked sections sit below the fixed preview banner + header;
+   without this, jumping to #id (or scrollIntoView) hides the section's
+   top under those fixed elements. */
+section[id] {
+  scroll-margin-top: 118px;
+}
+
+@keyframes tick {
+  to {
+    transform: rotate(360deg);
+  }
+}

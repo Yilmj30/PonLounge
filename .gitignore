@@ -1,0 +1,57 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# local simulated reservations DB (see src/db/localStore.ts)
+/.data/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+/playwright-report/
+/test-results/
+
+# local-only source material — raw client assets, not for the public repo.
+# Real content already lives in /public/photos (web-ready copies) and
+# src/data/menu.ts (extracted menu data); these stay local as originals/backup.
+/recetas cocteles/
+/fotos website/
+/PON Lounge - Carta (provisional).pdf
+produccion.env
