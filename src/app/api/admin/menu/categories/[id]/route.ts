@@ -3,7 +3,7 @@ import { deleteMenuCategory, updateMenuCategory } from "@/db/menuStore";
 import { menuCategorySchema } from "@/lib/menuValidation";
 import {
   parseJsonBody,
-  requireAdmin,
+  requireOwner,
   revalidateMenuPages,
   serverError,
   storeResultResponse,
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireOwner();
   if (unauthorized) return unauthorized;
 
   const body = await parseJsonBody(req, menuCategorySchema);
@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireOwner();
   if (unauthorized) return unauthorized;
 
   const { id } = await params;

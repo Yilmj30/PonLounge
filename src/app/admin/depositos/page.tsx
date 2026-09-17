@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { getAdminRole } from "@/lib/adminAuth";
 import { getPendingDeposits } from "@/db/reservationsStore";
 import PendingDepositsList from "@/components/admin/PendingDepositsList";
 import AdminNav from "@/components/admin/AdminNav";
@@ -13,16 +13,15 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDepositsPage() {
-  if (!(await isAdminAuthenticated())) {
-    redirect("/admin");
-  }
+  const role = await getAdminRole();
+  if (!role) redirect("/admin");
 
   const deposits = await getPendingDeposits();
 
   return (
     <main className="bg-obsidian min-h-screen px-6 py-16">
       <div className="mx-auto max-w-2xl">
-        <AdminNav />
+        <AdminNav role={role} />
         <h1 className="font-display text-cream mb-2 text-2xl">
           Depósitos pendientes
         </h1>

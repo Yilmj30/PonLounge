@@ -22,6 +22,8 @@ type CategoryDialogState =
 
 const ERROR_MESSAGES: Record<string, string> = {
   unauthorized: "Tu sesión expiró. Recarga la página y vuelve a entrar.",
+  forbidden:
+    "Tu clave es de equipo y no permite editar la carta. Entra con la clave de dueños.",
   category_not_empty:
     "Esa categoría todavía tiene productos. Muévelos o elimínalos primero.",
   not_found: "Ese elemento ya no existe. Recarga la página.",

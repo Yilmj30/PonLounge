@@ -13,6 +13,9 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
-    exclude: ["node_modules", "e2e", ".next"],
+    // .kilo/worktrees holds git worktrees (extra checkouts of this same
+    // repo) — without excluding them every test would run twice, and the
+    // copies would race each other over the shared .data/ folder.
+    exclude: ["node_modules", "e2e", ".next", "**/.kilo/**"],
   },
 });

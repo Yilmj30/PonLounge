@@ -41,12 +41,17 @@ export const BANK_ACCOUNT_TYPE = "Ahorros";
 export const BANK_ACCOUNT_NUMBER = "0550108900878373";
 export const BANK_ACCOUNT_HOLDER = "P.O.N Musical Sound S.A.S · NIT 9019150013";
 
-// Shared password for the /admin deposit-verification panel. There's no
-// per-person login system — just one password the team shares, checked
-// against this env var. Server-only (no NEXT_PUBLIC_ prefix). Falls back
-// to a placeholder in local dev so `npm run dev` works out of the box;
-// set a real one in .env.local before this ever goes live.
+// Shared passwords for /admin. There's no per-person login system — two
+// passwords the team shares, checked against these env vars:
+//
+//   - ADMIN_PASSWORD: the owners. Full panel, including the menu editor.
+//   - STAFF_PASSWORD: employees. Deposit review only — no menu editing.
+//
+// Server-only (no NEXT_PUBLIC_ prefix). Both fall back to placeholders in
+// local dev so `npm run dev` works out of the box; set real ones in
+// .env.local (and in the hosting panel) before this goes live.
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "ponlounge-admin";
+export const STAFF_PASSWORD = process.env.STAFF_PASSWORD ?? "ponlounge-equipo";
 
 export const ADDRESS_LINE =
   process.env.NEXT_PUBLIC_ADDRESS ??

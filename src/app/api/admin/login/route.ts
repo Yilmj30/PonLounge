@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_PASSWORD } from "@/lib/config";
-import { ADMIN_SESSION_COOKIE } from "@/lib/adminAuth";
+import { ADMIN_SESSION_COOKIE, roleForPassword } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +12,14 @@ export async function POST(req: NextRequest) {
   }
 
   const password = (body as { password?: string })?.password;
-  if (typeof password !== "string" || password !== ADMIN_PASSWORD) {
+  const role = typeof password === "string" ? roleForPassword(password) : null;
+  if (!role) {
     return NextResponse.json({ error: "invalid_password" }, { status: 401 });
   }
 
-  const res = NextResponse.json({ status: "ok" });
-  res.cookies.set(ADMIN_SESSION_COOKIE, ADMIN_PASSWORD, {
+  const res = NextResponse.json({ status: "ok", role });
+  // The cookie holds the password itself — see adminAuth.ts.
+  res.cookies.set(ADMIN_SESSION_COOKIE, password as string, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
