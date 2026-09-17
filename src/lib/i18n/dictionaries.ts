@@ -49,8 +49,6 @@ export const dictionaries = {
     "menu.lead":
       "Cócteles de autor, una barra completa de licores y una carta de vinos curada. Esta es la misma carta que encontrarás escaneando el código QR en tu mesa.",
     "menu.ctaFull": "Ver la carta completa",
-    "menu.qrNote":
-      "El código QR de las mesas apuntará a /carta — la página de carta independiente, lista para imprimir.",
 
     "why.eyebrow": "La experiencia PON",
     "why.title": "Todo lo que hace a una noche, inolvidable.",
@@ -313,8 +311,6 @@ export const dictionaries = {
     "menu.lead":
       "Signature cocktails, a full spirits bar, and a curated wine list. This is the same menu you'll find by scanning the QR code at your table.",
     "menu.ctaFull": "View the full menu",
-    "menu.qrNote":
-      "The table QR codes will point to /carta — the standalone menu page, print-ready.",
 
     "why.eyebrow": "The PON experience",
     "why.title": "Everything that makes a night unforgettable.",

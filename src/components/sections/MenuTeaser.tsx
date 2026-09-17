@@ -45,21 +45,6 @@ export default function MenuTeaser({ items }: { items: MenuItem[] }) {
           >
             {t("menu.ctaFull")}
           </Link>
-
-          <div className="border-brass/35 bg-brass/[0.06] text-cream-muted mt-6 flex items-start gap-3 rounded-2xl border border-dashed p-4.5 text-[13px]">
-            <span
-              aria-hidden="true"
-              className="border-brass/35 grid h-[30px] w-[30px] flex-none grid-cols-3 grid-rows-3 gap-0.5 rounded-md border p-[3px]"
-            >
-              {Array.from({ length: 9 }, (_, i) => (
-                <span
-                  key={i}
-                  className={i % 2 === 0 ? "bg-brass-light rounded-[1px]" : ""}
-                />
-              ))}
-            </span>
-            <span>{t("menu.qrNote")}</span>
-          </div>
         </ScrollReveal>
 
         <div className="grid gap-4.5">
