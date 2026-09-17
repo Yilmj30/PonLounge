@@ -15,6 +15,13 @@
       "when": 1789353750183,
       "tag": "0001_menu",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789681517987,
+      "tag": "0002_spots",
+      "breakpoints": true
     }
   ]
 }

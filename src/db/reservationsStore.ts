@@ -7,10 +7,12 @@
 // Postgres is provisioned — flip it to the real thing later just by
 // setting the env var, no code change needed.
 
-import { eq, and, sql as sqlOp } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { getDb, getSql, hasRemoteDatabase } from "@/db/client";
 import { slotCapacity, reservations } from "@/db/schema";
 import { isPastCancellationCutoff } from "@/lib/reservation";
+import { getSpots } from "@/db/spotsStore";
+import { freeSpotCount } from "@/lib/spots";
 import {
   getLocalAvailability,
   bookLocalReservation,
@@ -30,6 +32,8 @@ import {
 
 export type AvailabilitySlot = {
   time: string;
+  // Spots the venue can still seat that date (6 tables + 4 bar stools,
+  // minus the ones staff blocked) and how many are already taken.
   capacity: number;
   booked: number;
 };
@@ -74,31 +78,29 @@ export async function getAvailability(
 
   const db = getDb();
 
-  const slots = await db
-    .select()
-    .from(slotCapacity)
-    .orderBy(slotCapacity.slotTime);
-
-  const booked = await db
-    .select({
-      time: reservations.reservationTime,
-      total: sqlOp<number>`coalesce(sum(${reservations.partySize}), 0)`,
-    })
-    .from(reservations)
-    .where(
-      and(
-        eq(reservations.reservationDate, date),
-        eq(reservations.status, "confirmed"),
+  const [slots, spots, bookedRows] = await Promise.all([
+    db.select().from(slotCapacity).orderBy(slotCapacity.slotTime),
+    getSpots(),
+    db
+      .select({ total: count() })
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.reservationDate, date),
+          eq(reservations.status, "confirmed"),
+        ),
       ),
-    )
-    .groupBy(reservations.reservationTime);
+  ]);
 
-  const bookedByTime = new Map(booked.map((b) => [b.time, Number(b.total)]));
+  // A confirmed reservation holds its spot for the rest of that night, so
+  // every time slot of the date shows the same remaining count.
+  const free = freeSpotCount(spots);
+  const booked = Number(bookedRows[0]?.total ?? 0);
 
   return slots.map((slot) => ({
     time: slot.slotTime.slice(0, 5),
-    capacity: slot.capacity,
-    booked: bookedByTime.get(slot.slotTime) ?? 0,
+    capacity: free,
+    booked,
   }));
 }
 

@@ -1,15 +1,15 @@
 -- Approves a pending-deposit reservation, promoting it to 'confirmed'.
--- Capacity is re-checked HERE (not at booking time) since a pending
--- reservation never held its slot — someone else may have booked it in
--- the meantime. If it no longer fits, the reservation is left pending
--- (status returned as 'full') so staff can decide manually rather than
--- silently cancelling it.
+-- Availability is re-checked HERE (not at booking time) since a pending
+-- reservation never held a spot — someone else may have taken the last one
+-- in the meantime, or staff may have blocked tables. If nothing is free,
+-- the reservation is left pending (status returned as 'full') so staff can
+-- decide manually rather than silently cancelling it.
 create or replace function approve_deposit(
   p_code text
 ) returns table (status text) as $$
 declare
   v_row reservations%rowtype;
-  v_capacity int;
+  v_free int;
   v_booked int;
 begin
   select * into v_row from reservations where confirmation_code = p_code for update;
@@ -24,21 +24,16 @@ begin
     return;
   end if;
 
-  perform pg_advisory_xact_lock(
-    hashtextextended(v_row.reservation_date::text || v_row.reservation_time::text, 0)
-  );
+  perform pg_advisory_xact_lock(hashtextextended(v_row.reservation_date::text, 0));
 
-  select capacity into v_capacity
-  from slot_capacity
-  where slot_time = v_row.reservation_time;
+  select count(*) into v_free from venue_spots where not blocked;
 
-  select coalesce(sum(party_size), 0) into v_booked
+  select count(*) into v_booked
   from reservations
   where reservation_date = v_row.reservation_date
-    and reservation_time = v_row.reservation_time
     and reservations.status = 'confirmed';
 
-  if v_booked + v_row.party_size > coalesce(v_capacity, 0) then
+  if v_booked + 1 > v_free then
     return query select 'full'::text;
     return;
   end if;

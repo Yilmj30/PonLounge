@@ -1,6 +1,11 @@
--- Atomically checks remaining capacity for a date+time and inserts the
--- reservation in the same statement, so two concurrent requests for the
--- last open spot can't both succeed (classic check-then-insert race).
+-- Atomically checks whether a spot is still free for that date and inserts
+-- the reservation in the same statement, so two concurrent requests for the
+-- last free spot can't both succeed (classic check-then-insert race).
+--
+-- Capacity is the venue's spots (6 tables + 4 bar stools in venue_spots),
+-- not a headcount: one reservation takes one spot, and it holds that spot
+-- for the rest of that night, so availability is per DATE, not per time
+-- slot. Spots blocked by staff (venue_spots.blocked) don't count as free.
 --
 -- Deposit verification flow: there's no payment gateway wired up yet.
 -- p_deposit_required is computed by the app (party_size * price per
@@ -10,10 +15,10 @@
 -- NOT count against capacity (only 'confirmed' rows do) until staff
 -- approves it via approve_deposit() below.
 --
--- pg_advisory_xact_lock serializes concurrent calls for the *same*
--- date+time slot (the lock key is derived from them) without blocking
--- bookings for other slots, and releases automatically at the end of the
--- transaction — no manual unlock needed.
+-- pg_advisory_xact_lock serializes concurrent calls for the *same* date
+-- (the lock key is derived from it) without blocking bookings for other
+-- dates, and releases automatically at the end of the transaction — no
+-- manual unlock needed.
 -- The signature gained p_source/p_lang; drop the old 11-argument version
 -- so it doesn't linger as a separate overload.
 drop function if exists book_reservation(text, text, text, int, date, time, text, text, int, int, text);
@@ -35,7 +40,7 @@ create or replace function book_reservation(
   p_lang reservation_lang
 ) returns table (id uuid, code text, status text, remaining int, deposit_required int) as $$
 declare
-  v_capacity int;
+  v_free int;
   v_booked int;
   v_new_id uuid;
   v_code text;
@@ -50,25 +55,23 @@ begin
     return;
   end if;
 
-  perform pg_advisory_xact_lock(hashtextextended(p_date::text || p_time::text, 0));
+  perform pg_advisory_xact_lock(hashtextextended(p_date::text, 0));
 
-  select capacity into v_capacity
-  from slot_capacity
-  where slot_time = p_time;
-
-  if v_capacity is null then
+  -- The time still has to be one the venue offers.
+  if not exists(select 1 from slot_capacity where slot_time = p_time) then
     return query select null::uuid, null::text, 'unknown_slot'::text, null::int, null::int;
     return;
   end if;
 
-  select coalesce(sum(party_size), 0) into v_booked
+  select count(*) into v_free from venue_spots where not blocked;
+
+  select count(*) into v_booked
   from reservations
   where reservation_date = p_date
-    and reservation_time = p_time
     and reservations.status = 'confirmed';
 
-  if v_booked + p_party_size > v_capacity then
-    return query select null::uuid, null::text, 'full'::text, greatest(v_capacity - v_booked, 0), p_deposit_required;
+  if v_booked + 1 > v_free then
+    return query select null::uuid, null::text, 'full'::text, greatest(v_free - v_booked, 0), p_deposit_required;
     return;
   end if;
 
@@ -90,6 +93,6 @@ begin
   returning reservations.id into v_new_id;
 
   return query
-    select v_new_id, v_code, 'pending_deposit'::text, greatest(v_capacity - v_booked, 0), p_deposit_required;
+    select v_new_id, v_code, 'pending_deposit'::text, greatest(v_free - v_booked, 0), p_deposit_required;
 end;
 $$ language plpgsql;

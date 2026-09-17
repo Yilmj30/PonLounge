@@ -125,6 +125,7 @@ database), the wizard **falls back further** to the original manual flow
 | `slot_capacity`            | Capacity per time slot (seeded from `src/lib/hours.ts`)                                                                                                                                                |
 | `deposit_receipts`         | The transfer screenshot the customer uploads, keyed by its `DEP-XXXXXX` reference                                                                                                                      |
 | `processed_webhook_events` | Inbound-email webhook deliveries already handled, so a retry can't double-book                                                                                                                         |
+| `venue_spots`              | The 6 tables + 4 bar stools and whether staff blocked each one                                                                                                                                         |
 | `menu_categories`          | Menu sections (Cócteles de la Casa, Whiskies…) and their order                                                                                                                                         |
 | `menu_items`               | Every product: names/descriptions (ES + optional EN), price, photo, subgroup, visible/hidden, order                                                                                                    |
 | `menu_images`              | Photos uploaded from `/admin/carta` (resized in the browser before upload)                                                                                                                             |
@@ -139,9 +140,9 @@ Operating hours, the last reservation time, and per-slot capacity all come
 from one file: **`src/lib/hours.ts`**. It generates a slot every 30
 minutes from open until the last reservation time (currently **4:00 p.m.
 to 9:00 p.m.**, venue open until midnight), each with a default capacity
-of **30** — both the local simulated DB and the Postgres seed
-(`src/db/seed.ts`) read from it, so there's one source of truth regardless
-of which backend is active.
+of **30** — but that per-slot number is no longer what limits bookings:
+capacity is now the venue's spots (see "Tables and bar stools" above).
+`slot_capacity` is what defines which _times_ can be booked.
 
 - Editing `src/lib/hours.ts` and restarting the dev server updates the
   local simulated DB immediately (delete `.data/local-reservations.json`
@@ -197,14 +198,41 @@ src/components/CancelLookupForm.tsx        # UI for the /cancelar lookup page
 src/lib/useCancelReservation.ts            # Shared cancel-request hook (used by both UIs)
 ```
 
+## Tables and bar stools (`/admin/mesas`)
+
+The venue has **6 tables + 4 bar stools** (`src/lib/spots.ts`), and that —
+not a headcount — is what limits bookings:
+
+- One reservation takes **one spot**, whatever the party size, and holds it
+  **for the rest of that night**. So availability is per date: every time
+  slot of a day shows the same number of spots left.
+- Staff (employees _and_ owners) can **block** a spot from `/admin/mesas`
+  when a walk-in sits down without booking. A blocked spot can't be
+  reserved, in any date, until someone unblocks it — it's a switch, not a
+  schedule.
+- Booking and deposit approval both re-check this, so the site can't sell a
+  spot that no longer exists: `book_reservation()` and `approve_deposit()`
+  count `venue_spots where not blocked` minus that date's confirmed
+  reservations, inside the same transaction.
+- Party size is still asked (and still sets the deposit), but it no longer
+  limits capacity.
+
+```
+src/lib/spots.ts                      # The 6 tables + 4 stools, and the maths
+src/db/spotsStore.ts                  # Postgres + local-file backends, seeding
+src/app/admin/mesas/page.tsx          # The panel (any admin level)
+src/components/admin/SpotsPanel.tsx   # Block/unblock UI
+src/app/api/admin/spots/[id]/route.ts # PATCH { blocked, reason }
+```
+
 ## Admin access levels
 
 `/admin` has two shared passwords, no per-person accounts:
 
-| Password         | Who       | Can do                                                    |
-| ---------------- | --------- | --------------------------------------------------------- |
-| `ADMIN_PASSWORD` | Owners    | Everything: deposits **and** the menu editor              |
-| `STAFF_PASSWORD` | Employees | Deposits only — the menu editor is hidden and API-blocked |
+| Password         | Who       | Can do                                                          |
+| ---------------- | --------- | --------------------------------------------------------------- |
+| `ADMIN_PASSWORD` | Owners    | Everything: deposits, tables **and** the menu editor            |
+| `STAFF_PASSWORD` | Employees | Deposits and tables — the menu editor is hidden and API-blocked |
 
 The session cookie stores the password itself (not the role name), so the
 role can't be forged by editing the cookie — see `src/lib/adminAuth.ts`.

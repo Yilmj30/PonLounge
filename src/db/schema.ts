@@ -122,6 +122,27 @@ export const processedWebhookEvents = pgTable("processed_webhook_events", {
     .defaultNow(),
 });
 
+// --- Venue spots (6 tables + 4 bar stools) ---
+// One reservation takes one spot for the rest of that night. Staff can
+// block a spot from /admin/mesas when a walk-in is sitting there; a blocked
+// spot can't be reserved until it's unblocked.
+
+export const spotKind = pgEnum("spot_kind", ["mesa", "barra"]);
+
+export const venueSpots = pgTable("venue_spots", {
+  // Stable slug, e.g. "mesa-1" / "barra-3" (see src/lib/spots.ts).
+  id: text("id").primaryKey(),
+  label: text("label").notNull(),
+  kind: spotKind("kind").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  blocked: boolean("blocked").notNull().default(false),
+  blockedReason: text("blocked_reason"),
+  blockedAt: timestamp("blocked_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // --- Menu (carta), editable by the owners from /admin/carta ---
 // Seeded once from src/data/menu.ts by `npm run db:seed`; from then on this
 // is the source of truth for /carta and the home page teaser.
@@ -194,5 +215,6 @@ export type Reservation = typeof reservations.$inferSelect;
 export type NewReservation = typeof reservations.$inferInsert;
 export type SlotCapacity = typeof slotCapacity.$inferSelect;
 export type DepositReceipt = typeof depositReceipts.$inferSelect;
+export type VenueSpotRow = typeof venueSpots.$inferSelect;
 export type MenuCategoryRow = typeof menuCategories.$inferSelect;
 export type MenuItemRow = typeof menuItems.$inferSelect;

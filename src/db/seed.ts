@@ -5,6 +5,7 @@ import { getSql, getDb } from "./client";
 import { slotCapacity } from "./schema";
 import { DEFAULT_SLOTS } from "@/lib/hours";
 import { seedMenuIfEmpty } from "./menuStore";
+import { seedSpots } from "./spotsStore";
 
 // Run once after `npm run db:migrate` to install the atomic booking function
 // and seed the default time slots. Safe to re-run (idempotent): the
@@ -43,6 +44,9 @@ async function main() {
       });
   }
   console.log(`✓ Seeded ${DEFAULT_SLOTS.length} time slots`);
+
+  const spots = await seedSpots();
+  console.log(`✓ ${spots} mesas/puestos de barra listos`);
 
   const menuSeed = await seedMenuIfEmpty();
   console.log(

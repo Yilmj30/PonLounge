@@ -7,6 +7,7 @@ import type { AdminRole } from "@/lib/adminAuth";
 // Employees only see the deposits panel; editing the menu is for owners.
 const LINKS: { href: string; label: string; ownerOnly?: boolean }[] = [
   { href: "/admin/depositos", label: "Depósitos" },
+  { href: "/admin/mesas", label: "Mesas" },
   { href: "/admin/carta", label: "Carta", ownerOnly: true },
 ];
 

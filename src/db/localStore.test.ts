@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { rmSync } from "node:fs";
 import path from "node:path";
+import { TOTAL_SPOTS } from "@/lib/spots";
 import {
   getLocalAvailability,
   bookLocalReservation,
@@ -50,12 +51,20 @@ afterEach(() => {
 });
 
 describe("localStore", () => {
-  it("seeds default slots (16:00–21:00 every 30 min, capacity 30) with zero booked", async () => {
+  it("seeds default slots (16:00–21:00 every 30 min) with every spot free", async () => {
     const slots = await getLocalAvailability("2099-01-01");
     expect(slots).toHaveLength(11);
-    expect(slots[0]).toEqual({ time: "16:00", capacity: 30, booked: 0 });
-    expect(slots.at(-1)).toEqual({ time: "21:00", capacity: 30, booked: 0 });
-    expect(slots.every((s) => s.capacity === 30)).toBe(true);
+    // Capacity is the venue's spots (6 tables + 4 bar stools), not people.
+    expect(slots[0]).toEqual({
+      time: "16:00",
+      capacity: TOTAL_SPOTS,
+      booked: 0,
+    });
+    expect(slots.at(-1)).toEqual({
+      time: "21:00",
+      capacity: TOTAL_SPOTS,
+      booked: 0,
+    });
   });
 
   it("books a reservation as pending_deposit, returns a code, and does NOT count it in availability yet", async () => {
@@ -71,13 +80,29 @@ describe("localStore", () => {
     expect(slot?.booked).toBe(0);
   });
 
-  it("rejects a booking that would exceed slot capacity against already-confirmed reservations", async () => {
-    const first = await bookLocalReservation(baseInput({ partySize: 30 }));
-    await approveLocalDeposit(first.code!);
+  it("rejects a booking once every spot is taken, whatever the party size", async () => {
+    // One reservation takes one spot, so it takes TOTAL_SPOTS of them to
+    // fill the venue — party size doesn't matter.
+    for (let i = 0; i < TOTAL_SPOTS; i++) {
+      const booked = await bookLocalReservation(baseInput({ partySize: 2 }));
+      await approveLocalDeposit(booked.code!);
+    }
 
-    const second = await bookLocalReservation(baseInput({ partySize: 1 }));
-    expect(second.status).toBe("full");
-    expect(second.remaining).toBe(0);
+    const extra = await bookLocalReservation(baseInput({ partySize: 1 }));
+    expect(extra.status).toBe("full");
+    expect(extra.remaining).toBe(0);
+  });
+
+  it("counts a confirmed reservation against every time of that date, not just its own", async () => {
+    const booked = await bookLocalReservation(baseInput({ time: "16:00" }));
+    await approveLocalDeposit(booked.code!);
+
+    // The spot is held for the rest of the night.
+    const slots = await getLocalAvailability("2099-01-01");
+    expect(slots.every((s) => s.booked === 1)).toBe(true);
+    // ...but not on another date.
+    const other = await getLocalAvailability("2099-01-02");
+    expect(other.every((s) => s.booked === 0)).toBe(true);
   });
 
   it("rejects a time that isn't a configured slot", async () => {
@@ -160,7 +185,7 @@ describe("approveLocalDeposit / rejectLocalDeposit", () => {
     expect(result.reservation?.depositVerified).toBe(true);
 
     const slots = await getLocalAvailability("2099-01-01");
-    expect(slots.find((s) => s.time === "16:00")?.booked).toBe(4);
+    expect(slots.find((s) => s.time === "16:00")?.booked).toBe(1);
   });
 
   it("lists pending deposits and no longer lists one once approved", async () => {
@@ -173,22 +198,24 @@ describe("approveLocalDeposit / rejectLocalDeposit", () => {
     expect(pending.map((p) => p.code)).not.toContain(booked.code);
   });
 
-  it("refuses to approve if the slot filled up in the meantime, leaving it pending", async () => {
-    // Both fit when booked, since neither is confirmed (and thus counted)
-    // yet — pending reservations don't hold capacity.
-    const first = await bookLocalReservation(baseInput({ partySize: 20 }));
-    const second = await bookLocalReservation(baseInput({ partySize: 20 }));
-    expect(first.status).toBe("pending_deposit");
-    expect(second.status).toBe("pending_deposit");
+  it("refuses to approve if the venue filled up in the meantime, leaving it pending", async () => {
+    // Everything fits while pending — pending reservations hold nothing.
+    const pending: string[] = [];
+    for (let i = 0; i <= TOTAL_SPOTS; i++) {
+      const booked = await bookLocalReservation(baseInput());
+      expect(booked.status).toBe("pending_deposit");
+      pending.push(booked.code!);
+    }
 
-    // Approving the first fills the slot (20/30).
-    await approveLocalDeposit(first.code!);
+    // Approving the first TOTAL_SPOTS of them fills the venue.
+    for (const code of pending.slice(0, TOTAL_SPOTS)) {
+      expect((await approveLocalDeposit(code)).status).toBe("confirmed");
+    }
 
-    // Now approving the second would push it to 40/30 — no longer fits.
-    const result = await approveLocalDeposit(second.code!);
+    const result = await approveLocalDeposit(pending.at(-1)!);
     expect(result.status).toBe("full");
 
-    const stillPending = await getLocalReservationByCode(second.code!);
+    const stillPending = await getLocalReservationByCode(pending.at(-1)!);
     expect(stillPending?.status).toBe("pending_deposit");
   });
 
@@ -290,7 +317,7 @@ describe("cancelLocalReservation", () => {
     expect(stored?.status).toBe("confirmed");
 
     const slots = await getLocalAvailability("2099-01-01");
-    expect(slots.find((s) => s.time === "16:00")?.booked).toBe(4);
+    expect(slots.find((s) => s.time === "16:00")?.booked).toBe(1);
   });
 
   it("allows cancellation right at the 2h boundary minus a minute", async () => {

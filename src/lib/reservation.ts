@@ -20,6 +20,20 @@ export function isPastCancellationCutoff(
   return now.getTime() >= toLocalDate(date, time).getTime() - cutoffMs;
 }
 
+// The venue's date, not the server's: hosting usually runs on UTC, where
+// "today" flips at 7 p.m. Medellín time — right in the middle of service.
+export const VENUE_TIME_ZONE = "America/Bogota";
+
+export function todayISO(now: Date = new Date()): string {
+  // "en-CA" formats as YYYY-MM-DD, the same shape reservations are stored in.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: VENUE_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
 export function formatDate(value: string, lang: Lang): string {
   if (!value) return "";
   const parts = value.split("-").map(Number);

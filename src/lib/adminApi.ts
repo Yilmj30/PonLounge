@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
-import { isOwnerAuthenticated } from "@/lib/adminAuth";
+import { isAdminAuthenticated, isOwnerAuthenticated } from "@/lib/adminAuth";
 
 // Shared plumbing for the /api/admin/menu/* route handlers.
+
+// Any level (owners and employees) — deposits and the tables panel.
+export async function requireAdmin(): Promise<NextResponse | null> {
+  return (await isAdminAuthenticated())
+    ? null
+    : NextResponse.json({ error: "unauthorized" }, { status: 401 });
+}
 
 // The menu API is owner-only: an employee's session gets 403, so the UI
 // can tell them it's a permissions problem rather than an expired login.

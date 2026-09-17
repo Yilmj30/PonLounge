@@ -8,6 +8,10 @@
 // a serverless cold start) they're caught and the store keeps working
 // in-memory for the lifetime of that instance instead of crashing.
 //
+// Capacity comes from the venue's spots (see spotsStore.ts): one
+// reservation takes one spot for the whole night, and spots blocked by
+// staff don't count as free.
+//
 // Deposit verification flow: there's no payment gateway wired up yet, so
 // a reservation with a reported deposit starts as "pending_deposit" — it
 // does NOT count against slot capacity while pending, so it can't block
@@ -21,6 +25,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_SLOTS } from "@/lib/hours";
 import { isPastCancellationCutoff } from "@/lib/reservation";
+import { getSpots } from "@/db/spotsStore";
+import { remainingSpots, freeSpotCount } from "@/lib/spots";
 
 type ReservationStatus = "confirmed" | "pending_deposit" | "cancelled";
 export type ReservationSource = "web" | "email";
@@ -112,7 +118,15 @@ export type RejectDepositResult = {
   reservation?: ReservationSummary;
 };
 
-const DATA_FILE = path.join(process.cwd(), ".data", "local-reservations.json");
+// Resolved per call (not at import) so tests can point it at a temp dir
+// instead of the developer's real .data/ folder.
+function dataDir(): string {
+  return process.env.PON_LOCAL_DATA_DIR ?? path.join(process.cwd(), ".data");
+}
+
+function dataFile(): string {
+  return path.join(dataDir(), "local-reservations.json");
+}
 
 let persistenceWarned = false;
 
@@ -160,7 +174,7 @@ function generateConfirmationCode(data: StoreData): string {
 // dev hot-reload) working from different in-memory snapshots.
 function load(): StoreData {
   try {
-    const raw = readFileSync(DATA_FILE, "utf-8");
+    const raw = readFileSync(dataFile(), "utf-8");
     const parsed = JSON.parse(raw) as StoreData;
     return {
       slots: parsed.slots?.length ? parsed.slots : defaultData().slots,
@@ -181,8 +195,8 @@ function load(): StoreData {
 
 function persist(data: StoreData) {
   try {
-    mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-    writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+    mkdirSync(dataDir(), { recursive: true });
+    writeFileSync(dataFile(), JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
     if (!persistenceWarned) {
       persistenceWarned = true;
@@ -220,19 +234,13 @@ async function withSlotLock<T>(
   }
 }
 
-function confirmedBookedCount(
-  data: StoreData,
-  date: string,
-  time: string,
-): number {
-  return data.reservations
-    .filter(
-      (r) =>
-        r.reservationDate === date &&
-        r.reservationTime === time &&
-        r.status === "confirmed",
-    )
-    .reduce((sum, r) => sum + r.partySize, 0);
+// One confirmed reservation takes one spot for the whole night, so what
+// matters is how many there are that DATE — not the headcount, and not the
+// time slot.
+function confirmedCountForDate(data: StoreData, date: string): number {
+  return data.reservations.filter(
+    (r) => r.reservationDate === date && r.status === "confirmed",
+  ).length;
 }
 
 function toSummary(r: LocalReservation): ReservationSummary {
@@ -261,14 +269,15 @@ export async function getLocalAvailability(
   date: string,
 ): Promise<{ time: string; capacity: number; booked: number }[]> {
   const data = load();
+  const spots = await getSpots();
+  const free = freeSpotCount(spots);
+  const booked = confirmedCountForDate(data, date);
+
+  // Same numbers for every time of that date — see confirmedCountForDate.
   return data.slots
     .slice()
     .sort((a, b) => a.slotTime.localeCompare(b.slotTime))
-    .map((slot) => ({
-      time: slot.slotTime,
-      capacity: slot.capacity,
-      booked: confirmedBookedCount(data, date, slot.slotTime),
-    }));
+    .map((slot) => ({ time: slot.slotTime, capacity: free, booked }));
 }
 
 export async function bookLocalReservation(input: {
@@ -306,10 +315,11 @@ export async function bookLocalReservation(input: {
     };
   }
 
-  return withSlotLock(`${input.date}|${input.time}`, () => {
+  const spots = await getSpots();
+
+  return withSlotLock(`${input.date}`, () => {
     const data = load();
-    const slot = data.slots.find((s) => s.slotTime === input.time);
-    if (!slot) {
+    if (!data.slots.some((s) => s.slotTime === input.time)) {
       return {
         id: null,
         code: null,
@@ -319,14 +329,17 @@ export async function bookLocalReservation(input: {
       };
     }
 
-    const booked = confirmedBookedCount(data, input.date, input.time);
+    const remaining = remainingSpots(
+      spots,
+      confirmedCountForDate(data, input.date),
+    );
 
-    if (booked + input.partySize > slot.capacity) {
+    if (remaining < 1) {
       return {
         id: null,
         code: null,
         status: "full",
-        remaining: Math.max(slot.capacity - booked, 0),
+        remaining: 0,
         depositRequired: input.depositRequired,
       };
     }
@@ -365,7 +378,7 @@ export async function bookLocalReservation(input: {
       id: reservation.id,
       code: reservation.confirmationCode,
       status: "pending_deposit",
-      remaining: Math.max(slot.capacity - booked, 0),
+      remaining,
       depositRequired: input.depositRequired,
     };
   });
@@ -456,6 +469,7 @@ export async function approveLocalDeposit(
   code: string,
 ): Promise<ApproveDepositResult> {
   const normalized = code.trim().toUpperCase();
+  const spots = await getSpots();
   return withSlotLock(`approve|${normalized}`, () => {
     const data = load();
     const r = data.reservations.find(
@@ -464,15 +478,11 @@ export async function approveLocalDeposit(
     if (!r) return { status: "not_found" };
     if (r.status !== "pending_deposit") return { status: "not_pending" };
 
-    const slot = data.slots.find((s) => s.slotTime === r.reservationTime);
-    const capacity = slot?.capacity ?? 0;
-    const booked = confirmedBookedCount(
-      data,
-      r.reservationDate,
-      r.reservationTime,
-    );
-
-    if (booked + r.partySize > capacity) {
+    // Re-checked here: the reservation never held a spot while pending, so
+    // the last one may be gone (or staff may have blocked tables).
+    if (
+      remainingSpots(spots, confirmedCountForDate(data, r.reservationDate)) < 1
+    ) {
       return { status: "full", reservation: toSummary(r) };
     }
 
