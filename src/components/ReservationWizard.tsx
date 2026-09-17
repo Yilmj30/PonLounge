@@ -1043,6 +1043,12 @@ export default function ReservationWizard() {
                           </p>
                         )}
 
+                        <div className="border-brass/30 bg-brass/[0.06] mt-4 rounded-xl border border-dashed p-3.5">
+                          <p className="text-[12.5px] text-[#e0b458]">
+                            {t("reserve.holdDisclaimer")}
+                          </p>
+                        </div>
+
                         <div className="mt-4">
                           <label
                             htmlFor="deposit-receipt"

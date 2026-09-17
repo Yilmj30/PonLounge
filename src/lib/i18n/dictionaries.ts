@@ -175,6 +175,8 @@ export const dictionaries = {
     "reserve.receiptTooLarge": "La imagen es muy pesada (máximo 4MB).",
     "reserve.receiptUploadFailed":
       "No pudimos subir el comprobante. Intenta de nuevo.",
+    "reserve.holdDisclaimer":
+      "Tu mesa se mantiene reservada hasta 30 minutos después de la hora elegida (ej. si reservas para las 7:30 p. m., se mantiene hasta las 8:00 p. m.). Te recomendamos llegar con al menos 15 minutos de anticipación.",
     "reserve.emailLockTitle": "Ya enviaste tu solicitud por correo",
     "reserve.emailLockBody":
       "Revisa tu bandeja de entrada: te llegará la confirmación en cuanto verifiquemos tu depósito. Para evitar reservas duplicadas, no puedes hacer otra reserva desde esta página por ahora.",
@@ -434,6 +436,8 @@ export const dictionaries = {
     "reserve.receiptTooLarge": "The image is too large (4MB max).",
     "reserve.receiptUploadFailed":
       "We couldn't upload the receipt. Please try again.",
+    "reserve.holdDisclaimer":
+      "Your table stays reserved for up to 30 minutes after your chosen time (e.g. if you book for 7:30 pm, it's held until 8:00 pm). We recommend arriving at least 15 minutes early.",
     "reserve.emailLockTitle": "You've already sent your email request",
     "reserve.emailLockBody":
       "Check your inbox — you'll get a confirmation once we verify your deposit. To avoid duplicate reservations, you can't submit another one from this page for now.",
