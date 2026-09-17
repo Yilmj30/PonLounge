@@ -3,7 +3,7 @@ import { createMenuCategory } from "@/db/menuStore";
 import { menuCategorySchema } from "@/lib/menuValidation";
 import {
   parseJsonBody,
-  requireAdmin,
+  requireOwner,
   revalidateMenuPages,
   serverError,
   storeResultResponse,
@@ -12,7 +12,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireOwner();
   if (unauthorized) return unauthorized;
 
   const body = await parseJsonBody(req, menuCategorySchema);

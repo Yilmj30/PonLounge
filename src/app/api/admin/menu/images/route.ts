@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveMenuImage } from "@/db/menuStore";
 import { menuImageUploadSchema } from "@/lib/menuValidation";
-import { parseJsonBody, requireAdmin, serverError } from "@/lib/adminApi";
+import { parseJsonBody, requireOwner, serverError } from "@/lib/adminApi";
 
 export const dynamic = "force-dynamic";
 
 // Uploads a photo and returns its URL; the editor then saves that URL on
 // the item. Nothing public changes until the item itself is saved.
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireOwner();
   if (unauthorized) return unauthorized;
 
   const body = await parseJsonBody(req, menuImageUploadSchema);

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { isOwnerAuthenticated } from "@/lib/adminAuth";
 
 // Shared plumbing for the /api/admin/menu/* route handlers.
 
-export async function requireAdmin(): Promise<NextResponse | null> {
-  return (await isAdminAuthenticated())
+// The menu API is owner-only: an employee's session gets 403, so the UI
+// can tell them it's a permissions problem rather than an expired login.
+export async function requireOwner(): Promise<NextResponse | null> {
+  return (await isOwnerAuthenticated())
     ? null
-    : NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    : NextResponse.json({ error: "forbidden" }, { status: 403 });
 }
 
 export async function parseJsonBody<T extends z.ZodType>(

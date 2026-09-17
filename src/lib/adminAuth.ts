@@ -1,15 +1,39 @@
 import { cookies } from "next/headers";
-import { ADMIN_PASSWORD } from "./config";
+import { ADMIN_PASSWORD, STAFF_PASSWORD } from "./config";
 
-// Simple shared-password session for the /admin deposit-review panel —
-// one password the whole team uses, stored as a plain cookie value. This
-// is intentionally not a real multi-user auth system; it's enough to
-// keep the panel away from the general public while staying easy for a
-// small team to share.
+// Shared-password sessions for /admin, with two levels:
+//
+//   - "owner": the full panel, including the menu editor (/admin/carta).
+//   - "staff": deposit review only — employees can confirm reservations but
+//     can't change prices or products.
+//
+// This is intentionally not a per-person login system; it's two passwords
+// the team shares. The cookie holds the password itself (not the role
+// name) so it can't be forged by simply writing "owner" into it — the
+// role is derived by matching that value against each password.
 export const ADMIN_SESSION_COOKIE = "pon_admin_session";
 
-export async function isAdminAuthenticated(): Promise<boolean> {
+export type AdminRole = "owner" | "staff";
+
+export function roleForPassword(password: string): AdminRole | null {
+  // Owner wins if both passwords were set to the same value.
+  if (password === ADMIN_PASSWORD) return "owner";
+  if (password === STAFF_PASSWORD) return "staff";
+  return null;
+}
+
+export async function getAdminRole(): Promise<AdminRole | null> {
   const store = await cookies();
   const value = store.get(ADMIN_SESSION_COOKIE)?.value;
-  return value === ADMIN_PASSWORD;
+  return value ? roleForPassword(value) : null;
+}
+
+// Logged in at any level — enough for the deposits panel.
+export async function isAdminAuthenticated(): Promise<boolean> {
+  return (await getAdminRole()) !== null;
+}
+
+// Owners only — the menu editor and its API routes.
+export async function isOwnerAuthenticated(): Promise<boolean> {
+  return (await getAdminRole()) === "owner";
 }

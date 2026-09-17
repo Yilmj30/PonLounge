@@ -197,10 +197,24 @@ src/components/CancelLookupForm.tsx        # UI for the /cancelar lookup page
 src/lib/useCancelReservation.ts            # Shared cancel-request hook (used by both UIs)
 ```
 
+## Admin access levels
+
+`/admin` has two shared passwords, no per-person accounts:
+
+| Password         | Who       | Can do                                                    |
+| ---------------- | --------- | --------------------------------------------------------- |
+| `ADMIN_PASSWORD` | Owners    | Everything: deposits **and** the menu editor              |
+| `STAFF_PASSWORD` | Employees | Deposits only — the menu editor is hidden and API-blocked |
+
+The session cookie stores the password itself (not the role name), so the
+role can't be forged by editing the cookie — see `src/lib/adminAuth.ts`.
+Employees who reach `/admin/carta` are redirected to the deposits panel,
+and the menu API answers their requests with `403 forbidden`.
+
 ## Menu admin (`/admin/carta`)
 
 The owners edit the menu themselves — no code changes, no redeploy. Log in
-at `/admin` with `ADMIN_PASSWORD`, then open **Carta**:
+at `/admin` with `ADMIN_PASSWORD` (the owners' one), then open **Carta**:
 
 - Change prices, names, descriptions and photos (photos are resized to a
   ~200KB JPEG in the browser before upload).

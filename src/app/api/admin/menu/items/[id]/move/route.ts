@@ -3,7 +3,7 @@ import { moveMenuItem } from "@/db/menuStore";
 import { moveSchema } from "@/lib/menuValidation";
 import {
   parseJsonBody,
-  requireAdmin,
+  requireOwner,
   revalidateMenuPages,
   serverError,
   storeResultResponse,
@@ -15,7 +15,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireOwner();
   if (unauthorized) return unauthorized;
 
   const body = await parseJsonBody(req, moveSchema);

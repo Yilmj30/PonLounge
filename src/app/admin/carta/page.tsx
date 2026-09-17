@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { getAdminRole } from "@/lib/adminAuth";
 import { getAdminMenu } from "@/db/menuStore";
 import AdminNav from "@/components/admin/AdminNav";
 import MenuEditor from "@/components/admin/MenuEditor";
@@ -13,9 +13,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminMenuPage() {
-  if (!(await isAdminAuthenticated())) {
-    redirect("/admin");
-  }
+  const role = await getAdminRole();
+  if (!role) redirect("/admin");
+  // Employees don't get the menu editor — send them to their own panel.
+  if (role !== "owner") redirect("/admin/depositos");
 
   let categories: Awaited<ReturnType<typeof getAdminMenu>> | null = null;
   try {
@@ -28,7 +29,7 @@ export default async function AdminMenuPage() {
   return (
     <main className="bg-obsidian min-h-screen px-4 py-12 sm:px-6">
       <div className="mx-auto max-w-4xl">
-        <AdminNav />
+        <AdminNav role={role} />
         <h1 className="font-display text-cream mb-2 text-2xl">Carta</h1>
         <p className="text-cream-muted mb-8 text-sm">
           Cambia precios, fotos y descripciones, agrega productos nuevos u
